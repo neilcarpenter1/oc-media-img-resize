@@ -1,0 +1,8 @@
+{
+    "name": "neilcarpenter1/ocmediaimgresize",
+    "description": "Image resizer for OctoberCMS media library images",
+    "license": "MIT",
+    "require": {
+        "intervention/image": "^2.4"
+    }
+}
