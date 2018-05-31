@@ -56,11 +56,11 @@ class Resizer {
 			Storage::disk($disk)->makeDirectory($resized_imgs_dir);
 		}
 
-		$image = Image::make($original_file);
 
 		// Create the resized image
 		if (!Storage::disk($disk)->exists($new_path)) {
 			try {
+				$image = Image::make($original_file);
 				switch ($mode) {
 					case 'crop':
 						$image->fit($value1, $value2);
