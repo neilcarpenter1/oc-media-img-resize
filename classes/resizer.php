@@ -57,7 +57,6 @@ class Resizer {
 		}
 
 		$image = Image::make($original_file);
-		dd($image->exif());
 
 		// Create the resized image
 		if (!Storage::disk($disk)->exists($new_path)) {
