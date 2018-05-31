@@ -1,2 +1,2 @@
-# oc-media-img-resize
+# ocmediaimgresize
 OctoberCMS media library, twig image resizer
