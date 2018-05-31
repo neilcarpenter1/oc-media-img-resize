@@ -3,74 +3,87 @@
 use Storage;
 use Intervention\Image\ImageManagerStatic as Image;
 
+/**
+ * @param  $img String to file in medialibrary
+ */
 class Resizer {
 
-	public static function resizeimage($img) {
+	/* We want to get the original file from the given string and return a string to a resized image */
+
+	public static function resizeimage($img, $mode = 'auto', $value1 = null, $value2 = null) {
 
 		// If no image is available return an empty string
 		if (!$img) {
 			return '';
 		}
+
+		$mode = $mode ?: config('neilcarpenter1.ocmediaimgresize::default.mode');
+		$value1 = $value1 ?: config('neilcarpenter1.ocmediaimgresize::default.size');
 		
-		$resource = 'media';
+		// get the disk & path to the currently used storage for media
+		$disk = config('cms.storage.media.disk');
+		$disk_folder = config('cms.storage.media.folder');
 		
-		$uploads_path = config('cms.storage.uploads.path');
-
-		if (substr($img, 0, strlen($uploads_path)) == $uploads_path) {
-			$resource = 'uploads';
-		}
-
-		$disk = config('cms.storage.'.$resource.'.disk');
-		$disk_folder = config('cms.storage.'.$resource.'.folder');
-
+		// set the full path for the original file
 		$original_path = $disk_folder.$img;
 
-		if ($resource == 'uploads') {
-			$original_path = str_replace('cms.storage.'.$resource.'.path', '', $img);
-			$original_path = $disk_folder.$original_path;
-		}
-
+		// check the file exists
 		if (!Storage::disk($disk)->exists($original_path)) {
 			return '';
 		}
 
+		// get the original file
 		$original_file = Storage::disk($disk)->get($original_path);
 
+		// set the directory name where resized images should be stored from this plugins config/config.php fuile
 		$resized_folder = config('neilcarpenter1.ocmediaimgresize::folder');
+
+		// append the directory to the currently used disk storage path
 		$resized_imgs_dir = $disk_folder.'/'.$resized_folder.'/';
 
+		// generate a new file name for the resized image
 		$new_filename = str_replace('/', '-', substr($img, 1));
-
-		$last_dot_position = strrpos($new_filename, '.');
-
-		$extension = substr($new_filename, $last_dot_position+1);
-
-		$filename_body = str_slug(substr($new_filename, 0, $last_dot_position));
-
+		$extension = pathinfo($original_path, PATHINFO_EXTENSION);
 		$filesize = Storage::disk($disk)->size($original_path);
 		$filetime = Storage::disk($disk)->lastModified($original_path);
-
-		$version_string = $filesize.'-'.$filetime;
-
-		$new_filename = $filename_body.'-'.md5($version_string).'.'.$extension;
-
+		$filename = pathinfo($new_filename, PATHINFO_FILENAME);
+		$version_string = $mode.'-'.$value1.'x'.$value2.'-'.$filesize.'-'.$filetime;
+		$new_filename = $filename.'-'.md5($version_string).'.'.$extension;
 		$new_path = $resized_imgs_dir.$new_filename;
 
+		// Create the directory where resized images are saved if it doesn't exists
 		if (!Storage::disk($disk)->exists($resized_imgs_dir)) {
 			Storage::disk($disk)->makeDirectory($resized_imgs_dir);
 		}
 
+		$image = Image::make($original_file);
+		dd($image->exif());
+
+		// Create the resized image
 		if (!Storage::disk($disk)->exists($new_path)) {
 			try {
-				$image = Image::make($original_file);
-				$image->fit(200,200);
+				switch ($mode) {
+					case 'crop':
+						$image->fit($value1, $value2);
+						break;
+					case 'height':
+						$image->heighten($value1);
+						break;
+					case 'width':
+						$image->widen($value1);
+						break;
+					default:
+						$image->resize($value1, $value2, function($constraint){
+							$constraint->aspectRatio();
+						});
+						break;
+				}
 				$image_stream = $image->stream($extension);
 				Storage::disk($disk)->put($new_path, $image_stream->__toString());
 			} catch (\Exception $e) {
 				return 'Intervention image error : '.$e->getMessage();
 			}
 		}
-
-		return asset(config('cms.storage.'.$resource.'.path').'/'.$resized_folder.'/'.$new_filename);
+		return asset(config('cms.storage.media.path').'/'.$resized_folder.'/'.$new_filename);
 	}
 }
